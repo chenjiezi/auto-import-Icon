@@ -1,0 +1,15 @@
+{
+  "name": "auto-import-icon",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:chenjiezi/auto-import-Icon.git",
+  "author": "chenjiezi <892774940@qq.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "crawler": "^1.3.0"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "puppeteer-heap-snapshot": "^0.1.8"
+  }
+}

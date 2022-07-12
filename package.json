@@ -8,11 +8,10 @@
   "scripts": {
     "start": "node index.js"
   },
-  "devDependencies": {
-    "crawler": "^1.3.0"
-  },
+  "devDependencies": {},
   "dependencies": {
-    "cheerio": "^1.0.0-rc.12",
-    "puppeteer-heap-snapshot": "^0.1.8"
+    "compressing": "^1.6.2",
+    "puppeteer-heap-snapshot": "^0.1.8",
+    "request": "^2.88.2"
   }
 }

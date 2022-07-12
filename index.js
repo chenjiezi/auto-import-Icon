@@ -3,162 +3,144 @@
  * @Author: chenjz
  * @Date: 2022-07-09 11:11:13
  * @LastEditors: chenjz
- * @LastEditTime: 2022-07-09 17:57:22
+ * @LastEditTime: 2022-07-12 17:44:23
  */
 const Puppeteer = require('puppeteer');
 const https = require('https');
 const request = require('request');
 const fs = require('fs');
+const compressing = require("compressing");
 const path = require('path');
-const filePath = path.join(__dirname, '/target.zip');
-const stream = fs.createWriteStream(filePath);
-// TODO: 跳转页面，等待dom加载完，再进行后续操作
+
+const operationFile = require('./operationFile.js');
 
 (async () => {
-  const browser = await Puppeteer.launch({
-    headless: true,   //有浏览器界面启动
-    // slowMo: 100,       //放慢浏览器执行速度，方便测试观察
-    args: [            //启动 Chrome 的参数，详见上文中的介绍
-      '–no-sandbox',
-      '--window-size=1920,1080'
-    ],
-  });
-  let page = await browser.newPage();
-  // page.on('load', (load) => console.log('Page loaded!', load));
-  page.on('response', (response) => {
-    if (response.url().includes('login.json')) {
-      console.log('response.url():', response.url());
-      console.log('response.headers():', response.headers()['set-cookie']);
-    }
-  });
-  // await page.setViewport({
-  //   width: 1920,
-  //   height: 1080
-  // });
-  await page.goto('https://www.iconfont.cn/login');
-  console.log('去登录页');
   try {
+    console.log('=========开始自动导入图标资源============');
+    const browser = await Puppeteer.launch({
+      headless: true,   //有浏览器界面启动
+      // slowMo: 100,       //放慢浏览器执行速度，方便测试观察
+      args: [            //启动 Chrome 的参数，详见上文中的介绍
+        '–no-sandbox',
+        '--window-size=500,500'
+      ],
+    });
+    const username = '13822864901'; // 登录账号
+    const password = 'qazjiezi520'; // 登录密码
+    const projectId = '3290617'; // 项目id
+    const loginPage = 'https://www.iconfont.cn/login';
+    const loginApi = 'https://www.iconfont.cn/api/account/login.json';
+    const downloadUrl = 'https://www.iconfont.cn/api/project/download.zip';
+
+    let page = await browser.newPage();
+    // 监听http请求响应
+    await page.on('response', async (response) => {
+      if (response.url() === loginApi) {
+        console.log('=========登录请求响应============');
+        if (response.status() === 200) {
+          // 登录失败，返回错误信息
+          try {
+            const json = await response.json()
+            if (json.code !== 200) {
+              await browser.close();
+              throw `登录请求响应实体：${JSON.stringify(json)}`;
+            }
+          } catch (e) {
+            // 登录成功没有返回响应实体，会导致报错，如果登录成功，跳过这个报错。
+            const loginSuccessErrMsg = 'ProtocolError: Could not load body for this request. This might happen if the request is a preflight request.';
+            if (e.toString() !== loginSuccessErrMsg) {
+              await browser.close();
+              throw new Error(e);
+            }
+          }
+          console.log('=========获取cookie============');
+          const cookies = await page.cookies();
+          const cookieObj = {}
+          cookies.forEach(item => cookieObj[item.name] = item.value);
+          // console.log('cookieObj:', cookieObj);
+          console.log('=========下载图标资源压缩包============');
+          const options = {
+            hostname: 'www.iconfont.cn',
+            path: `/api/project/download.zip?pid=${projectId}&ctoken${cookieObj.ctoken}`,
+            headers: {
+              cookie: `EGG_SESS_ICONFONT=${cookieObj.EGG_SESS_ICONFONT};ctoken=${cookieObj.ctoken};`
+            },
+            method: 'GET',
+          };
+          const req = https.request(options, async (res) => {
+            let data = [];
+            res.on('data', (chunk) => {
+              console.log(`Received ${chunk.length} bytes of data.`);
+              data.push(chunk);
+            });
+            res.on('end', () => {
+              const content = Buffer.concat(data);
+              console.log('content:', content);
+              const zipFilePath = path.join(__dirname, 'static/download.zip');
+              fs.writeFile(zipFilePath, content, (err) => {
+                if (err) throw err;
+                console.log('=========图标资源压缩包下载完毕============');
+                const decompressPath = path.join(__dirname, 'static/');
+                compressing.zip.uncompress(zipFilePath, decompressPath)
+                  .then(() => {
+                    console.log('压缩包解压路径：', decompressPath);
+                    console.log('=========对图标资源进行修改============');
+                    operationFile();
+                  })
+                  .catch((err) => {
+                    console.error('压缩包解压失败：' + err.toString());
+                  })
+              })
+              browser.close();
+            });
+          });
+
+          req.on('error', (e) => {
+            console.error(`problem with request: ${e.message}`);
+          });
+          req.end();
+        } else {
+          await browser.close();
+          throw new Error(`登录请求失败[code=${response.status()}]`)
+        }
+      }
+    });
+
+    // 进入登录页面
+    await page.goto(loginPage);
+
     await page
       .waitForSelector('#userid')
       .then(async () => {
-        await page.type('#userid', '13822864901');
-        await page.type('#password', 'qazjiezi520');
+        console.log('=========登录操作============');
+        await page.type('#userid', username);
+        await page.type('#password', password);
         await page.keyboard.press('Enter');
-        console.log('登录成功~~');
+        console.log('=========登录表单验证============');
+        _check();
       });
-    console.log('去首页');
-    await page
-      .waitForSelector('.home')
-      .then(async () => {
-        const cookies = await page.cookies();
-        let cookie = '';
-        let ctoken = '';
-        const prejectId = '3290617';
-        cookies.forEach(c => {
-          if (c.name === 'EGG_SESS_ICONFONT') {
-            cookie += `${c.name}=${c.value};`;
-          }
-          if (c.name === 'ctoken') {
-            ctoken = c.value;
-            cookie += `${c.name}=${c.value};`;
-          }
-        })
-        console.log('获取cookie=>', cookie);
+
+    async function _check() {
+      const useridErrorLabel = await page.$('#userid-error');
+      const passwordErrorLabel = await page.$('#password-error');
+      let useridErrText = '';
+      let passwordErrText = '';
+
+      if (useridErrorLabel) {
+        useridErrText = await page.$eval('#userid-error', el => el.textContent);
+      }
+      if (passwordErrorLabel) {
+        passwordErrText = await page.$eval('#password-error', el => el.textContent);
+      }
+      useridErrText && console.log('iconfont：', useridErrText);
+      passwordErrText && console.log('iconfont：', passwordErrText);
+      if (useridErrText || passwordErrText) {
         await browser.close();
-        // request(`https://www.iconfont.cn/api/project/download.zip?pid=${prejectId}&ctoken=${ctoken}`, {
-        //   headers: {
-        //     'cookie': cookie
-        //   }
-        // })
-        //   .pipe(stream)
-        //   .on('close', async function () {
-        //     console.log('图标资源压缩包下载完毕!')
-        //     await browser.close();
-        //   })
-      });
-    
+      }
+    }
   } catch (e) {
     console.log('捕获错误:', e.toString())
     await browser.close();
   }
+
 })();
-
-
-// (async () => {
-//   const browser = await Puppeteer.launch({
-//     headless: false,   //有浏览器界面启动
-//     // slowMo: 100,       //放慢浏览器执行速度，方便测试观察
-//     args: [            //启动 Chrome 的参数，详见上文中的介绍
-//       '–no-sandbox',
-//       '--window-size=500,500'
-//     ],
-//   });
-//   let page = await browser.newPage();
-//   // 进入阿里巴巴矢量库首页
-//   console.log('进入阿里巴巴矢量库首页')
-//   await page.goto('https://www.iconfont.cn/');
-
-//   console.log('跳转到登录页面')
-//   // 跳转到登录页面
-//   const loginBtn = await page.$('.signin');
-//   await loginBtn.click();
-
-//   // 登录操作
-//   await page
-//     .waitForSelector('#userid')
-//     .then(async () => {
-//       await page.type('#userid', '13822864901');
-//       await page.type('#password', 'qazjiezi520');
-//       await page.keyboard.press('Enter');
-//       console.log('自动登录')
-//   })
-
-//   await page.waitForTimeout(2000)
-  
-//   await page
-//     .waitForSelector('.nav-item-link')
-//     .then(async () => {
-//       page.$x('//span[text()="资源管理"]/parent::a').then(a => {
-//         a[0].click();
-//       });
-//     })
-
-//   await page.waitForTimeout(2000)
-
-//   await page.$x('//a[text()="我的项目"]').then(a => {
-//     a[0].click();
-//   });
-
-//   await page.waitForTimeout(2000)
-//   const href = await page.$eval('#J_project_detail > div:nth-child(2) > a', el => el.href);
-
-//   console.log('href:', href);
-
-//   const cookies = await page.cookies();
-
-//   let cookie = '';
-  
-//   cookies.forEach(c => {
-//     if (c.name === 'EGG_SESS_ICONFONT' || c.name === 'ctoken') {
-//       console.log(c.name+'=>', c.value)
-//       cookie += `${c.name}=${c.value};`;
-//     }
-//   })
-
-//   request(href,{
-//     "headers": {
-//       "cookie": cookie
-//     }
-//   })
-//   .pipe(stream)
-//   .on('close', function (err) {
-//     if (err) {
-//       console.log('err:', err)
-//     }
-//   })
-
-//   // await page.waitForTimeout(2000)
-  
-//   // await browser.close();
-
-// })();

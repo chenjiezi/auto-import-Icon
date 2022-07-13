@@ -3,16 +3,17 @@
  * @Author: chenjz
  * @Date: 2022-07-09 11:11:13
  * @LastEditors: chenjz
- * @LastEditTime: 2022-07-12 17:44:23
+ * @LastEditTime: 2022-07-13 15:06:22
  */
-const Puppeteer = require('puppeteer');
-const https = require('https');
-const request = require('request');
-const fs = require('fs');
-const compressing = require("compressing");
-const path = require('path');
+import Puppeteer from "puppeteer";
+import https from "https";
+import fs from "fs";
+import compressing from "compressing";
+import path from "path";
 
-const operationFile = require('./operationFile.js');
+import operationFile from './operationFile.js';
+
+const __dirname = path.resolve();
 
 (async () => {
   try {
@@ -25,12 +26,13 @@ const operationFile = require('./operationFile.js');
         '--window-size=500,500'
       ],
     });
-    const username = '13822864901'; // 登录账号
-    const password = 'qazjiezi520'; // 登录密码
-    const projectId = '3290617'; // 项目id
+    const username = '13822864901'; // 登录账号 TODO:可配置
+    const password = 'qazjiezi520'; // 登录密码 TODO:可配置
+    const projectId = '3290617'; // 项目id TODO:可配置
     const loginPage = 'https://www.iconfont.cn/login';
     const loginApi = 'https://www.iconfont.cn/api/account/login.json';
     const downloadUrl = 'https://www.iconfont.cn/api/project/download.zip';
+    const saveCompressedPackage = true;
 
     let page = await browser.newPage();
     // 监听http请求响应
@@ -75,22 +77,42 @@ const operationFile = require('./operationFile.js');
             });
             res.on('end', () => {
               const content = Buffer.concat(data);
-              console.log('content:', content);
-              const zipFilePath = path.join(__dirname, 'static/download.zip');
-              fs.writeFile(zipFilePath, content, (err) => {
-                if (err) throw err;
-                console.log('=========图标资源压缩包下载完毕============');
-                const decompressPath = path.join(__dirname, 'static/');
-                compressing.zip.uncompress(zipFilePath, decompressPath)
-                  .then(() => {
-                    console.log('压缩包解压路径：', decompressPath);
-                    console.log('=========对图标资源进行修改============');
-                    operationFile();
-                  })
-                  .catch((err) => {
-                    console.error('压缩包解压失败：' + err.toString());
-                  })
-              })
+              // console.log('content:', content);
+              console.log('=========图标资源压缩包下载完毕============');
+
+              if (saveCompressedPackage) {
+                const zipFilePath = path.join(__dirname, 'static/download.zip');
+                fs.writeFile(zipFilePath, content, (err) => {
+                  if (err) throw err;
+                  console.log('压缩包保存路径：', zipFilePath);
+                });
+              }
+
+              const decompressPath = path.join(__dirname, 'static/');
+              compressing.zip.uncompress(content, decompressPath)
+                .then(() => {
+                  console.log('压缩包解压路径：', decompressPath);
+                  console.log('=========对图标资源进行修改============');
+                  operationFile();
+                })
+                .catch((err) => {
+                  console.error('压缩包解压失败：' + err.toString());
+                })
+              // const zipFilePath = path.join(__dirname, 'static/download.zip');
+              // fs.writeFile(zipFilePath, content, (err) => {
+              //   if (err) throw err;
+              //   console.log('=========图标资源压缩包下载完毕============');
+              //   const decompressPath = path.join(__dirname, 'static/');
+              //   compressing.zip.uncompress(content, decompressPath)
+              //     .then(() => {
+              //       console.log('压缩包解压路径：', decompressPath);
+              //       console.log('=========对图标资源进行修改============');
+              //       operationFile();
+              //     })
+              //     .catch((err) => {
+              //       console.error('压缩包解压失败：' + err.toString());
+              //     })
+              // })
               browser.close();
             });
           });

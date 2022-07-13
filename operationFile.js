@@ -1,28 +1,27 @@
 /*
- * @Description: 
+ * @Description: 操作图标资源
  * @Author: chenjz
  * @Date: 2022-07-12 16:19:15
  * @LastEditors: chenjz
- * @LastEditTime: 2022-07-12 17:39:12
+ * @LastEditTime: 2022-07-13 15:06:00
  */
-const fs = require('fs');
-const path = require('path');
-
+import fs from 'fs';
+import path from 'path';
+const __dirname = path.resolve();
 const f = (p) => path.join(__dirname, p);
-// 保留的文件
 const retainFileList = [
   'iconfont.css',
   'iconfont.svg',
   'iconfont.ttf',
   'iconfont.woff',
   'iconfont.woff2'
-];
-// 进行修改的文件
-const modifyFileList = 'iconfont.css';
-const iconFile = f('static');
-const projectId = '3290617';
+]; // 保留的文件 TODO:可配置
+const modifyFileList = 'iconfont.css'; // 进行修改的文件 TODO:可配置
+const projectId = '3290617'; // TODO:可配置
 
-module.exports = function () {
+const iconFile = f('static');
+
+export default function () {
   fs.readdir(iconFile, (err, files) => {
     if (err) throw err;
     let iconDir = '';
@@ -59,9 +58,16 @@ module.exports = function () {
             fs.writeFile(p, updateContent, (err) => {
               if (err) throw err;
               console.log('文件内容修改成功：', p);
+              const targetFileDir = f('static/icon');
+              // 删除原有icon文件
+              if (fs.existsSync(targetFileDir)) {
+                retainFileList.forEach(file => {
+                  fs.rm(f('static/icon/' + file));
+                })
+                console.log('删除原有icon文件');
+              }
               // 修改文件名称
-              const renameErr = fs.renameSync(basePath, f('static/icon'));
-              if (renameErr) throw renameErr;
+              fs.renameSync(basePath, targetFileDir);
               console.log('==========图标资源更新完毕========');
             })
           });

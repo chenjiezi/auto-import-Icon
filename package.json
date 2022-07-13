@@ -5,6 +5,7 @@
   "repository": "git@github.com:chenjiezi/auto-import-Icon.git",
   "author": "chenjiezi <892774940@qq.com>",
   "license": "MIT",
+  "type": "module",
   "scripts": {
     "start": "node index.js"
   },

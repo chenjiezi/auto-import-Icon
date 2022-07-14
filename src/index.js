@@ -6,21 +6,22 @@ import https from "https";
 import fsPromises from 'fs/promises';
 import compressing from "compressing";
 import path from "path";
-import operationFile from './operationFile.js';
 import config from './config.js';
 
 const LOGIN_URL = 'https://www.iconfont.cn/login';
 const LOGIN_API = 'https://www.iconfont.cn/api/account/login.json';
 const DOWNLOAD_URL = 'https://www.iconfont.cn/api/project/download.zip';
 
+let fileList = [];
+
 async function app() {
   try {
-    console.log('=========开始自动导入图标资源============');
+    console.log('开始自动导入图标资源');
     const browser = await puppeteer.launch(config.puppeteerOptions || {});
     const page = await browser.newPage();
     await page.goto(LOGIN_URL);
 
-    console.log('=========进入登录页面============');
+    console.log('进入登录页面');
 
     // 监听登录请求响应
     await page.on('response', async (response) => {
@@ -29,7 +30,7 @@ async function app() {
           // 处理登录失败
           await handleLoginError(response);
 
-          console.log('=========登录成功============');
+          console.log('登录成功');
 
           // 获取cookie
           const cookieObj = await getCookie();
@@ -42,7 +43,7 @@ async function app() {
       }
     });
 
-    console.log('=========进行登录操作============');
+    console.log('进行登录操作');
 
     await page
       .waitForSelector('#userid')
@@ -55,7 +56,7 @@ async function app() {
 
     // 下载图标资源压缩包
     async function downloadZip(cookieObj) {
-      console.log('=========下载图标资源压缩包============');
+      console.log('下载图标资源压缩包');
       console.log(`图标项目pid：${config.projectId}`);
       const url = `${DOWNLOAD_URL}?pid=${config.projectId}&ctoken=${cookieObj.ctoken}`
       https.get(url, {
@@ -71,7 +72,7 @@ async function app() {
         });
 
         res.on('end', async () => {
-          console.log('=========图标资源压缩包下载完毕============');
+          console.log('图标资源压缩包下载完毕');
           const content = Buffer.concat(data);
 
           // 保留压缩包
@@ -96,6 +97,48 @@ async function app() {
       }).on('error', (e) => {
         console.error(`下载图标资源压缩包失败: ${e.message}`);
       });
+    }
+
+    // 处理图标资源
+    async function operationFile() {
+      try {
+        console.log('对图标资源进行修改');
+
+        const files = await fsPromises.readdir(config.basePath);
+        const primaryName = files.find(f => f.startsWith(`font_${config.projectId}`));
+        const primaryPath = path.join(config.basePath, primaryName);
+        let iconDirPath = path.join(config.basePath, config.iconfontFolder);
+
+        // 删除原有存储图标资源的文件夹
+        await fsPromises.rmdir(iconDirPath, { recursive: true });
+        // 新图标资源文件夹重命名
+        await fsPromises.rename(primaryPath, iconDirPath);
+
+        // 删除不保留的文件
+        if (config.retainFileList.length) {
+          const iconFiles = await fsPromises.readdir(iconDirPath);
+          const delFiles = iconFiles
+            .filter(f => !config.retainFileList.includes(f))
+            .map(f => fsPromises.rm(path.join(iconDirPath, f)));
+
+          await Promise.all(delFiles);
+          fileList = await fsPromises.readdir(iconDirPath);
+        }
+
+        // 修改文件内容
+        if (config.modifyFileList.length) {
+          const mlist = config.modifyFileList.filter(item => fileList.includes(item.fileName));
+          mlist.forEach(async (m) => {
+            const p = path.join(iconDirPath, m.fileName);
+            const content = await fsPromises.readFile(p, 'utf-8');
+            m.update && await fsPromises.writeFile(p, m.update(content));
+          })
+        }
+
+        console.log('图标资源更新完毕');
+      } catch (e) {
+        console.error('operationFile=>', e);
+      }
     }
 
     // 处理登录报错

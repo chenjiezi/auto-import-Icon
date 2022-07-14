@@ -1,13 +1,3 @@
-/*
- * @Description: 
- * @Author: chenjz
- * @Date: 2022-07-14 12:13:21
- * @LastEditors: chenjz
- * @LastEditTime: 2022-07-14 14:30:52
- */
-import path from "path";
-const __dirname = path.resolve();
-
 export default {
   puppeteerOptions: {
     headless: true
@@ -15,10 +5,10 @@ export default {
   username: '13822864901', // 登录账号
   password: 'qazjiezi520', // 登录密码
   projectId: '3290617', // 项目id
-  saveCompressedPackage: true,
-  basePath: path.join(__dirname, 'static'),
+  basePath: './src/static',
+  iconfontFolder: 'iconfont',
+  saveCompressedPackage: false,
   compressedPackageFileName: 'download.zip',
-  iconDirName: 'icon',
   // 保留的文件
   retainFileList: [
     'iconfont.css',

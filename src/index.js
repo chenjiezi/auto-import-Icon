@@ -1,51 +1,43 @@
-/*
- * @Description: 自动导入icon
- * @Author: chenjz
- * @Date: 2022-07-09 11:11:13
- * @LastEditors: chenjz
- * @LastEditTime: 2022-07-14 14:30:40
+/**
+ * auto import icon for node
  */
-import Puppeteer from "puppeteer";
+import puppeteer from "puppeteer";
 import https from "https";
-import fs from "fs";
 import fsPromises from 'fs/promises';
 import compressing from "compressing";
 import path from "path";
 import operationFile from './operationFile.js';
 import config from './config.js';
 
-const loginPage = 'https://www.iconfont.cn/login'; // 登录页面
-const loginApi = 'https://www.iconfont.cn/api/account/login.json'; // 登录接口
-const downloadUrl = 'https://www.iconfont.cn/api/project/download.zip'; // 图标资源下载地址
+const LOGIN_URL = 'https://www.iconfont.cn/login';
+const LOGIN_API = 'https://www.iconfont.cn/api/account/login.json';
+const DOWNLOAD_URL = 'https://www.iconfont.cn/api/project/download.zip';
 
-(async () => {
+async function app() {
   try {
     console.log('=========开始自动导入图标资源============');
-    // 启动浏览器
-    const browser = await Puppeteer.launch(config.puppeteerOptions || {});
-    // 创建页面标签
+    const browser = await puppeteer.launch(config.puppeteerOptions || {});
     const page = await browser.newPage();
-    // 进入登录页面
-    await page.goto(loginPage);
+    await page.goto(LOGIN_URL);
 
     console.log('=========进入登录页面============');
 
     // 监听登录请求响应
     await page.on('response', async (response) => {
-      if (response.url() === loginApi) {
+      if (response.url() === LOGIN_API) {
         if (response.status() === 200) {
+          // 处理登录失败
+          await handleLoginError(response);
 
           console.log('=========登录成功============');
 
-          // 处理登录失败
-          await handleLoginError(response);
           // 获取cookie
           const cookieObj = await getCookie();
           // 下载图标资源
           await downloadZip(cookieObj);
         } else {
           await browser.close();
-          throw new Error(`登录请求失败[code=${response.status()}]`)
+          throw new Error(`登录失败[code=${response.status()}]`)
         }
       }
     });
@@ -64,7 +56,8 @@ const downloadUrl = 'https://www.iconfont.cn/api/project/download.zip'; // 图�
     // 下载图标资源压缩包
     async function downloadZip(cookieObj) {
       console.log('=========下载图标资源压缩包============');
-      const url = `${downloadUrl}?pid=${config.projectId}&ctoken${cookieObj.ctoken}`
+      console.log(`图标项目pid：${config.projectId}`);
+      const url = `${DOWNLOAD_URL}?pid=${config.projectId}&ctoken${cookieObj.ctoken}`
       https.get(url, {
         headers: {
           cookie: `EGG_SESS_ICONFONT=${cookieObj.EGG_SESS_ICONFONT};ctoken=${cookieObj.ctoken};`
@@ -110,8 +103,8 @@ const downloadUrl = 'https://www.iconfont.cn/api/project/download.zip'; // 图�
       try {
         const json = await response.json()
         if (json.code !== 200) {
+          console.error(`登录失败：${JSON.stringify(json)}`);
           await browser.close();
-          throw `登录请求响应实体：${JSON.stringify(json)}`;
         }
       } catch (e) {
         // 登录成功没有返回响应实体，会导致报错，如果登录成功，跳过这个报错。
@@ -154,5 +147,6 @@ const downloadUrl = 'https://www.iconfont.cn/api/project/download.zip'; // 图�
     console.log('捕获错误:', e.toString())
     await browser.close();
   }
+}
 
-})();
+app();

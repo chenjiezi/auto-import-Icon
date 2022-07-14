@@ -1,11 +1,3 @@
-/*
- * @Description: 操作图标资源
- * @Author: chenjz
- * @Date: 2022-07-12 16:19:15
- * @LastEditors: chenjz
- * @LastEditTime: 2022-07-14 14:29:33
- */
-import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import config from './config.js';
@@ -19,7 +11,7 @@ export default async function () {
     const files = await fsPromises.readdir(config.basePath);
     const primaryName = files.find(f => f.startsWith(`font_${config.projectId}`));
     const primaryPath = path.join(config.basePath, primaryName);
-    const iconDirPath = path.join(config.basePath, config.iconDirName);
+    let iconDirPath = path.join(config.basePath, config.iconfontFolder);
 
     // 删除原有存储图标资源的文件夹
     await fsPromises.rmdir(iconDirPath, { recursive: true });

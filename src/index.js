@@ -57,7 +57,7 @@ async function app() {
     async function downloadZip(cookieObj) {
       console.log('=========下载图标资源压缩包============');
       console.log(`图标项目pid：${config.projectId}`);
-      const url = `${DOWNLOAD_URL}?pid=${config.projectId}&ctoken${cookieObj.ctoken}`
+      const url = `${DOWNLOAD_URL}?pid=${config.projectId}&ctoken=${cookieObj.ctoken}`
       https.get(url, {
         headers: {
           cookie: `EGG_SESS_ICONFONT=${cookieObj.EGG_SESS_ICONFONT};ctoken=${cookieObj.ctoken};`
